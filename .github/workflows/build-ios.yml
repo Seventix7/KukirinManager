@@ -24,6 +24,7 @@ jobs:
 
       - name: Build app
         run: |
+          set -o pipefail
           xcodebuild clean build \
             -project KukirinManager.xcodeproj \
             -scheme KukirinManager \
@@ -33,7 +34,7 @@ jobs:
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_IDENTITY="" \
-            PROVISIONING_PROFILE_SPECIFIER=""
+            PROVISIONING_PROFILE_SPECIFIER="" | xcpretty
 
       - name: Package IPA
         run: |
