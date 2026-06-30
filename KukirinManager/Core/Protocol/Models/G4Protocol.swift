@@ -1,14 +1,32 @@
 import Foundation
 
-/// KuKirin G4 protocol — reverse-engineered from hardware captures.
-/// Telemetry frame: 20 bytes, sync = byte[1] == 0x3C
-/// Command format: F0 4C [cmd] [value]
+// MARK: - KuKirin G4 Protocol
+// Reverse-engineered from FFF2 BLE notifications.
+//
+// FFF2 sends two frame types interleaved:
+//
+// Frame A (11 bytes): byte[1] = 0x00
+//   [SPD_LIMIT] [00] [2C] [01] [81] [17] [22] [20] [MOTOR_SPD] [00] [01]
+//   • byte[0]  = speed limit km/h
+//   • byte[8]  = motor/wheel speed in 0.5 km/h units
+//
+// Frame B (20 bytes): byte[1] = 0x3C  ← main telemetry
+//   [SPD_LIMIT] [3C] [00] [SL-13] [00] [MODE] [SPD_LO] [SPD_HI]
+//   [CURR] [V_HI] [V_LO] [00] [00] [00] [FLAGS] [ODO_LO] [ODO_HI]
+//   [50] [BATT%] [00]
+//   • byte[0]     = speed limit km/h (0x1E=30, 0x23=35, 0x28=40)
+//   • byte[5]     = mode (0x01=Eco, 0x02=Sport, 0x03=Race)
+//   • bytes[6][7] = speed little-endian, /10 → km/h
+//   • bytes[9][10]= voltage big-endian, /100 → V
+//   • byte[14]    = flags: 0x20=normal, 0x22=cruise-off, 0x26=cruise-on
+//   • bytes[15][16]=odometer little-endian, /10 → km
+//   • byte[18]    = battery percent (decimal)
+
 final class G4Protocol: ScooterProtocol, @unchecked Sendable {
     let modelId: ScooterModel = .g4
     var capabilities: ScooterCapabilities { ScooterCapabilities.forModel(.g4) }
 
     private var lastTelemetry = TelemetrySnapshot.empty
-    private var buffer = Data()
 
     func identify(name: String?, advertisement: [String: Any]) -> Bool {
         matchesModel(name: name, patterns: ScooterModel.g4.namePatterns)
@@ -16,50 +34,56 @@ final class G4Protocol: ScooterProtocol, @unchecked Sendable {
     }
 
     func onConnected(session: BLEPeripheralSession?) async throws {
-        PacketLogger.shared.logSystem("G4: connected — telemetry streams automatically")
-        // G4 streams telemetry without needing a request command
+        PacketLogger.shared.logSystem("G4: connected — streaming telemetry on FFF2")
+        // G4 streams automatically, no request needed
     }
 
     func parseIncoming(_ data: Data) -> [ProtocolEvent] {
+        let bytes = [UInt8](data)
         var events: [ProtocolEvent] = [.rawFrame(data)]
 
-        buffer.append(data)
-
-        // G4 sends 20-byte telemetry frames. Sync = byte[1] == 0x3C
-        while buffer.count >= 20 {
-            let bytes = [UInt8](buffer)
-
-            guard bytes[1] == 0x3C else {
-                // Out of sync — drop first byte and retry
-                buffer.removeFirst()
-                continue
-            }
-
-            // We have a valid 20-byte frame
-            let frame = buffer.prefix(20)
-            buffer.removeFirst(20)
-
+        // Frame B: 20 bytes, byte[1] == 0x3C
+        if bytes.count == 20 && bytes[1] == 0x3C {
             var snapshot = lastTelemetry
             snapshot.timestamp = Date()
 
-            // Byte [5] — ride mode (02=eco, 03=sport, 04=race based on captures)
+            // Ride mode — byte[5]
             snapshot.rideMode = modeFromByte(bytes[5])
 
-            // Bytes [9][10] — battery voltage, big-endian, /100
-            // e.g. 1A 89 → 0x1A89 = 6793 → 67.93V
-            snapshot.batteryVoltage = Double(UInt16(bytes[9]) << 8 | UInt16(bytes[10])) / 100.0
+            // Speed — bytes[6][7] little-endian, /10 km/h
+            let rawSpeed = UInt16(bytes[7]) << 8 | UInt16(bytes[6])
+            snapshot.speedKmh = Double(rawSpeed) / 10.0
 
-            // Byte [18] — battery percent (decimal), e.g. 0x64 = 100%
+            // Battery voltage — bytes[9][10] big-endian, /100 V
+            let rawVolt = UInt16(bytes[9]) << 8 | UInt16(bytes[10])
+            snapshot.batteryVoltage = Double(rawVolt) / 100.0
+
+            // Battery percent — byte[18] decimal (100 = 100%)
             snapshot.batteryPercent = Double(bytes[18])
 
-            // Bytes [15][16] — odometer in 0.1km units, little-endian
-            // e.g. 49 22 → 0x2249 = 8777 → 877.7km
-            let odoRaw = UInt16(bytes[16]) << 8 | UInt16(bytes[15])
-            snapshot.odometerKm = Double(odoRaw) / 10.0
+            // Odometer — bytes[15][16] little-endian, /10 km
+            let rawOdo = UInt16(bytes[16]) << 8 | UInt16(bytes[15])
+            snapshot.odometerKm = Double(rawOdo) / 10.0
 
-            // Byte [14] — flags (bit 1 = cruise control, bit 2 = lights)
-            // We don't parse flags into telemetry snapshot currently
+            // Cruise control from flags byte[14]
+            // 0x26 = 0b00100110 → bit2 set = cruise active
+            snapshot.throttlePercent = (bytes[14] & 0x04) != 0 ? 100 : 0 // repurpose for cruise indicator
 
+            lastTelemetry = snapshot
+            events.append(.telemetry(snapshot))
+        }
+
+        // Frame A: 11 bytes, byte[1] == 0x00 — contains motor/wheel speed
+        else if bytes.count == 11 && bytes[1] == 0x00 {
+            // byte[8] = motor speed in 0.5 km/h units
+            let motorSpeed = Double(bytes[8]) * 0.5
+            var snapshot = lastTelemetry
+            snapshot.timestamp = Date()
+            // Only update speed from Frame A if Frame B hasn't given us a valid speed
+            // (Frame B is more accurate; Frame A can supplement motor speed display)
+            snapshot.motorPowerWatts = Double(bytes[8]) // store raw as motor speed proxy
+            // Speed limit: byte[0]
+            // (we don't store it in snapshot but we could log it)
             lastTelemetry = snapshot
             events.append(.telemetry(snapshot))
         }
@@ -68,25 +92,35 @@ final class G4Protocol: ScooterProtocol, @unchecked Sendable {
     }
 
     func buildCommand(_ command: ScooterCommand) throws -> Data {
-        // G4 command format: F0 4C [cmd_id] [value]
+        // G4 command format: F0 4C [cmd] [value]
         switch command {
         case .setRideMode(let mode):
             return Data([0xF0, 0x4C, 0x03, modeByteFor(mode)])
+
         case .setCruiseControl(let on):
             guard capabilities.cruiseControl else { throw ProtocolError.capabilityNotAvailable }
             return Data([0xF0, 0x4C, 0x13, on ? 0x01 : 0x00])
+
         case .setLights(let on):
             guard capabilities.lights else { throw ProtocolError.capabilityNotAvailable }
             return Data([0xF0, 0x4C, 0x04, on ? 0x01 : 0x00])
+
         case .setAccelerationStrength(let strength):
-            // 0=slow, 1=normal, 2=fast
-            let val = UInt8(max(0, min(2, strength / 34)))
+            // strength 0..100 → G4 values: 0x01=slow, 0x02=fast
+            let val: UInt8 = strength >= 50 ? 0x02 : 0x01
             return Data([0xF0, 0x4C, 0x30, val])
+
+        case .setStartMode(let mode):
+            // F0 4C 02 00 = ZeroStart ON, F0 4C 02 01 = KickStart
+            return Data([0xF0, 0x4C, 0x02, mode == .zeroStart ? 0x00 : 0x01])
+
         case .ping:
             return Data([0xF0, 0x4C, 0xFF, 0x00])
+
         case .requestTelemetry:
-            // G4 streams automatically; no request needed. Return empty.
+            // G4 streams automatically; send empty data (won't be written)
             return Data()
+
         default:
             throw ProtocolError.unsupportedCommand
         }
@@ -96,19 +130,19 @@ final class G4Protocol: ScooterProtocol, @unchecked Sendable {
 
     private func modeFromByte(_ b: UInt8) -> RideMode {
         switch b {
-        case 0x02: return .eco
-        case 0x03: return .sport
-        case 0x04: return .race
+        case 0x01: return .eco
+        case 0x02: return .sport
+        case 0x03: return .race
         default:   return .eco
         }
     }
 
     private func modeByteFor(_ mode: RideMode) -> UInt8 {
         switch mode {
-        case .eco:    return 0x02
-        case .sport:  return 0x03
-        case .race:   return 0x04
-        case .custom: return 0x02
+        case .eco:    return 0x01
+        case .sport:  return 0x02
+        case .race:   return 0x03
+        case .custom: return 0x01
         }
     }
 
