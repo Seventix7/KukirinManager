@@ -71,7 +71,7 @@ struct ScooterCapabilities: Sendable, Equatable {
         case .g2:
             return ScooterCapabilities(
                 isConnectableForTelemetry: true,
-                rideModes: [.eco, .drive, .sport],
+                rideModes: [.eco, .sport, .race],
                 motorTemperature: false,
                 controllerTemperature: true,
                 electronicHorn: false,
@@ -115,7 +115,7 @@ struct ScooterCapabilities: Sendable, Equatable {
         case .g4:
             return ScooterCapabilities(
                 isConnectableForTelemetry: true,
-                rideModes: [.eco, .drive, .sport, .custom],
+                rideModes: [.eco, .sport, .race, .custom],
                 motorTemperature: true,
                 controllerTemperature: true,
                 electronicHorn: false,

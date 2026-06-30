@@ -27,41 +27,35 @@ final class G4Protocol: ScooterProtocol, @unchecked Sendable {
         
         buffer.append(data)
         
-        while buffer.count > 0 {
-            let length = Int(buffer[0])
-            let totalLength = length + 1
-            
-            if buffer.count >= totalLength && length > 0 {
-                let frame = buffer.prefix(totalLength)
-                buffer.removeFirst(totalLength)
-                let bytes = [UInt8](frame)
+        while buffer.count >= 31 {
+            let bytes = [UInt8](buffer)
+            // Look for sync: Byte 1 == 0x3C, Byte 2 == 0x00, Byte 30 == 0x01
+            if bytes[1] == 0x3C && bytes[2] == 0x00 && bytes[30] == 0x01 {
+                let frame = buffer.prefix(31)
+                buffer.removeFirst(31)
                 
-                if bytes[0] == 0x1E && bytes.count == 31 {
-                    var snapshot = lastTelemetry
-                    snapshot.timestamp = Date()
-                    // Battery %
-                    snapshot.batteryPercent = Double(bytes[8])
-                    // Voltage (big endian)
-                    snapshot.batteryVoltage = Double(UInt16(bytes[9]) << 8 | UInt16(bytes[10])) / 100.0
-                    // Speed (km/h)
-                    snapshot.speedKmh = Double(bytes[13]) // Try byte 13 based on typical offset
-                    // Odometer (little endian 2C 01 -> 300 -> 30.0)
-                    let odo16 = Double(UInt16(bytes[23]) << 8 | UInt16(bytes[22])) / 10.0
-                    snapshot.tripDistanceKm = odo16
-                    // Mode
-                    let modeByte = bytes[5]
-                    if modeByte == 1 { snapshot.rideMode = .eco }
-                    else if modeByte == 2 { snapshot.rideMode = .sport }
-                    else if modeByte == 3 { snapshot.rideMode = .custom } // Race
-                    
-                    lastTelemetry = snapshot
-                    events.append(.telemetry(snapshot))
-                }
-            } else if length == 0 {
-                // Prevent infinite loop if buffer starts with 0
-                buffer.removeFirst()
+                var snapshot = lastTelemetry
+                snapshot.timestamp = Date()
+                // Battery %
+                snapshot.batteryPercent = Double(bytes[8])
+                // Voltage (big endian)
+                snapshot.batteryVoltage = Double(UInt16(bytes[9]) << 8 | UInt16(bytes[10])) / 100.0
+                // Speed (km/h)
+                snapshot.speedKmh = Double(bytes[13]) // Guessing byte 13
+                // Odometer (little endian)
+                let odo16 = Double(UInt16(bytes[23]) << 8 | UInt16(bytes[22])) / 10.0
+                snapshot.tripDistanceKm = odo16
+                // Mode
+                let modeByte = bytes[5]
+                if modeByte == 1 { snapshot.rideMode = .eco }
+                else if modeByte == 2 { snapshot.rideMode = .race }
+                else if modeByte == 3 { snapshot.rideMode = .race }
+                
+                lastTelemetry = snapshot
+                events.append(.telemetry(snapshot))
             } else {
-                break
+                // Out of sync, drop 1 byte and try again
+                buffer.removeFirst()
             }
         }
         return events
@@ -115,8 +109,8 @@ final class G4Protocol: ScooterProtocol, @unchecked Sendable {
     private func modeIndex(_ mode: RideMode) -> Int {
         switch mode {
         case .eco: 0
-        case .drive: 1
-        case .sport: 2
+        case .sport: 1
+        case .race: 2
         case .custom: 3
         }
     }
@@ -124,8 +118,8 @@ final class G4Protocol: ScooterProtocol, @unchecked Sendable {
     private func modeFromIndex(_ index: UInt8) -> RideMode {
         switch index {
         case 0: .eco
-        case 1: .drive
-        case 2: .sport
+        case 1: .sport
+        case 2: .race
         default: .custom
         }
     }

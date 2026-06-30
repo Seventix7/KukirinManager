@@ -3,8 +3,8 @@ import Foundation
 /// Riding mode presets exposed by the scooter controller.
 enum RideMode: String, Codable, Sendable, CaseIterable, Identifiable {
     case eco = "Eco"
-    case drive = "Drive"
     case sport = "Sport"
+    case race = "Race"
     case custom = "Custom"
 
     var id: String { rawValue }
@@ -12,8 +12,8 @@ enum RideMode: String, Codable, Sendable, CaseIterable, Identifiable {
     var iconName: String {
         switch self {
         case .eco: "leaf.fill"
-        case .drive: "car.fill"
         case .sport: "bolt.fill"
+        case .race: "flame.fill"
         case .custom: "slider.horizontal.3"
         }
     }

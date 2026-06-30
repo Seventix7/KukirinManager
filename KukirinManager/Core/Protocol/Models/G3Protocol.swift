@@ -189,8 +189,8 @@ final class G3Protocol: ScooterProtocol, @unchecked Sendable {
     private func modeIndex(_ mode: RideMode) -> Int {
         switch mode {
         case .eco: 0
-        case .drive: 1
-        case .sport: 2
+        case .sport: 1
+        case .race: 2
         case .custom: 3
         }
     }
@@ -198,8 +198,8 @@ final class G3Protocol: ScooterProtocol, @unchecked Sendable {
     private func modeFromIndex(_ index: UInt8) -> RideMode {
         switch index {
         case 0: .eco
-        case 1: .drive
-        case 2: .sport
+        case 1: .sport
+        case 2: .race
         default: .custom
         }
     }

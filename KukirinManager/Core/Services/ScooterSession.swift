@@ -355,6 +355,6 @@ struct ControlsState: Equatable {
     var displayBrightness: Int = 80
     var autoSleepMinutes: Int = 5
     var speedLimits: [RideMode: Double] = [
-        .eco: 15, .drive: 25, .sport: 45, .custom: 35
+        .eco: 15, .sport: 25, .race: 45, .custom: 35
     ]
 }

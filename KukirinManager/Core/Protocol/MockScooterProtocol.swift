@@ -11,11 +11,11 @@ final class MockScooterProtocol: ScooterProtocol, @unchecked Sendable {
     private var tripKm: Double = 2.4
     private var odometerKm: Double = 1247.3
     private var rideSeconds: TimeInterval = 420
-    var rideMode: RideMode = .drive
+    var rideMode: RideMode = .sport
     private var timer: Timer?
 
     var speedLimits: [RideMode: Double] = [
-        .eco: 15, .drive: 25, .sport: 45, .custom: 35
+        .eco: 15, .sport: 25, .race: 45, .custom: 35
     ]
     var accelerationStrength: Int = 60
     var regenBraking: Int = 40
