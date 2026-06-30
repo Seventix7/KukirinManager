@@ -27,7 +27,8 @@ final class BLEPeripheralSession: NSObject {
     func write(_ data: Data) {
         guard let tx = txCharacteristic else { return }
         PacketLogger.shared.log(direction: .tx, data: data)
-        peripheral.writeValue(data, for: tx, type: .withResponse)
+        let type: CBCharacteristicWriteType = tx.properties.contains(.write) ? .withResponse : .withoutResponse
+        peripheral.writeValue(data, for: tx, type: type)
     }
 
     func enableNotifications() {
