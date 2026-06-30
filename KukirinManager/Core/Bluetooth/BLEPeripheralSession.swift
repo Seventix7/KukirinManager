@@ -25,14 +25,22 @@ final class BLEPeripheralSession: NSObject {
     }
 
     func write(_ data: Data) {
-        guard let tx = txCharacteristic else { return }
+        guard let tx = txCharacteristic else {
+            PacketLogger.shared.logSystem("Write failed: txCharacteristic is nil")
+            return
+        }
         PacketLogger.shared.log(direction: .tx, data: data)
         let type: CBCharacteristicWriteType = tx.properties.contains(.write) ? .withResponse : .withoutResponse
+        PacketLogger.shared.logSystem("Writing to \(tx.uuid) (type: \(type == .withResponse ? "withResponse" : "withoutResponse")): \(data.map { String(format: "%02X", $0) }.joined(separator: " "))")
         peripheral.writeValue(data, for: tx, type: type)
     }
 
     func enableNotifications() {
-        guard let rx = rxCharacteristic else { return }
+        guard let rx = rxCharacteristic else {
+            PacketLogger.shared.logSystem("Enable notifications failed: rxCharacteristic is nil")
+            return
+        }
+        PacketLogger.shared.logSystem("Enabling notifications on RX: \(rx.uuid)")
         peripheral.setNotifyValue(true, for: rx)
     }
 }
@@ -93,6 +101,7 @@ extension BLEPeripheralSession: CBPeripheralDelegate {
                     rxCharacteristic = characteristic
                 }
             }
+            PacketLogger.shared.logSystem("Discovered chars for \(service.uuid). TX: \(txCharacteristic?.uuid.uuidString ?? "nil"), RX: \(rxCharacteristic?.uuid.uuidString ?? "nil")")
             if txCharacteristic != nil, rxCharacteristic != nil {
                 enableNotifications()
                 onDiscoveryComplete?()

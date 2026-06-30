@@ -268,6 +268,8 @@ final class ScooterSession {
     }
 
     private func startTelemetryPolling() {
+        // G4 streams telemetry automatically — no polling needed
+        guard activeModel != .g4 else { return }
         telemetryTimer?.invalidate()
         telemetryTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             Task { @MainActor in
