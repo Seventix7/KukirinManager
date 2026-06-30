@@ -19,21 +19,50 @@ final class G4Protocol: ScooterProtocol, @unchecked Sendable {
         await MainActor.run { session.write(frame) }
     }
 
+    private var buffer = Data()
+
     func parseIncoming(_ data: Data) -> [ProtocolEvent] {
         guard FrameValidator.validate(data) else { return [] }
         var events: [ProtocolEvent] = [.rawFrame(data)]
-        let bytes = [UInt8](data)
-        if bytes.count >= 14, bytes[0] == 0x55, bytes[1] == 0xAA {
-            var snapshot = lastTelemetry
-            snapshot.timestamp = Date()
-            snapshot.speedKmh = Double(bytes[4])
-            snapshot.batteryPercent = Double(bytes[5])
-            snapshot.batteryVoltage = Double(UInt16(bytes[6]) << 8 | UInt16(bytes[7])) / 100.0
-            snapshot.motorTemperatureC = Double(bytes[8])
-            snapshot.controllerTemperatureC = Double(bytes[9])
-            snapshot.rideMode = modeFromIndex(bytes[10])
-            lastTelemetry = snapshot
-            events.append(.telemetry(snapshot))
+        
+        buffer.append(data)
+        
+        while buffer.count > 0 {
+            let length = Int(buffer[0])
+            let totalLength = length + 1
+            
+            if buffer.count >= totalLength && length > 0 {
+                let frame = buffer.prefix(totalLength)
+                buffer.removeFirst(totalLength)
+                let bytes = [UInt8](frame)
+                
+                if bytes[0] == 0x1E && bytes.count == 31 {
+                    var snapshot = lastTelemetry
+                    snapshot.timestamp = Date()
+                    // Battery %
+                    snapshot.batteryPercent = Double(bytes[8])
+                    // Voltage (big endian)
+                    snapshot.batteryVoltage = Double(UInt16(bytes[9]) << 8 | UInt16(bytes[10])) / 100.0
+                    // Speed (km/h)
+                    snapshot.speedKmh = Double(bytes[13]) // Try byte 13 based on typical offset
+                    // Odometer (little endian 2C 01 -> 300 -> 30.0)
+                    let odo16 = Double(UInt16(bytes[23]) << 8 | UInt16(bytes[22])) / 10.0
+                    snapshot.tripOdometerKm = odo16
+                    // Mode
+                    let modeByte = bytes[5]
+                    if modeByte == 1 { snapshot.rideMode = .eco }
+                    else if modeByte == 2 { snapshot.rideMode = .sport }
+                    else if modeByte == 3 { snapshot.rideMode = .custom } // Race
+                    
+                    lastTelemetry = snapshot
+                    events.append(.telemetry(snapshot))
+                }
+            } else if length == 0 {
+                // Prevent infinite loop if buffer starts with 0
+                buffer.removeFirst()
+            } else {
+                break
+            }
         }
         return events
     }

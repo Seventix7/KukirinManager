@@ -13,7 +13,9 @@ enum FrameValidator {
         let knownHeaders: [[UInt8]] = [
             [0x5A, 0xA5],
             [0x55, 0xAA],
-            [0xAA, 0x55]
+            [0xAA, 0x55],
+            [0x1E], // KuKirin G4 Frame length header 1
+            [0x1C]  // KuKirin G4 Frame length header 2
         ]
         return knownHeaders.contains { header in
             bytes.count >= header.count && Array(bytes.prefix(header.count)) == header
