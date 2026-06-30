@@ -42,48 +42,40 @@ final class G4Protocol: ScooterProtocol, @unchecked Sendable {
         let bytes = [UInt8](data)
         var events: [ProtocolEvent] = [.rawFrame(data)]
 
-        // Frame B: 20 bytes, byte[1] == 0x3C
+        // Frame B: 20 bytes, byte[1] == 0x3C — main telemetry (NO speed here)
         if bytes.count == 20 && bytes[1] == 0x3C {
             var snapshot = lastTelemetry
             snapshot.timestamp = Date()
 
-            // Ride mode — byte[5]
+            // Ride mode — byte[5]: 0x01=Eco, 0x02=Sport, 0x03=Race
             snapshot.rideMode = modeFromByte(bytes[5])
 
-            // Speed — bytes[6][7] little-endian, /10 km/h
-            let rawSpeed = UInt16(bytes[7]) << 8 | UInt16(bytes[6])
-            snapshot.speedKmh = Double(rawSpeed) / 10.0
-
-            // Battery voltage — bytes[9][10] big-endian, /100 V
+            // Battery voltage — bytes[9][10] big-endian, /100 → V
             let rawVolt = UInt16(bytes[9]) << 8 | UInt16(bytes[10])
             snapshot.batteryVoltage = Double(rawVolt) / 100.0
 
-            // Battery percent — byte[18] decimal (100 = 100%)
+            // Battery percent — byte[18] decimal (e.g. 100 = 100%)
             snapshot.batteryPercent = Double(bytes[18])
 
-            // Odometer — bytes[15][16] little-endian, /10 km
+            // Odometer — bytes[15][16] little-endian, /10 → km
             let rawOdo = UInt16(bytes[16]) << 8 | UInt16(bytes[15])
             snapshot.odometerKm = Double(rawOdo) / 10.0
 
-            // Cruise control from flags byte[14]
-            // 0x26 = 0b00100110 → bit2 set = cruise active
-            snapshot.throttlePercent = (bytes[14] & 0x04) != 0 ? 100 : 0 // repurpose for cruise indicator
+            // Motor RPM proxy — bytes[6][7] little-endian
+            // Stored in motorPowerWatts field for dashboard display as "motor speed"
+            let rawRPM = UInt16(bytes[7]) << 8 | UInt16(bytes[6])
+            snapshot.motorPowerWatts = Double(rawRPM)
 
             lastTelemetry = snapshot
             events.append(.telemetry(snapshot))
         }
 
-        // Frame A: 11 bytes, byte[1] == 0x00 — contains motor/wheel speed
+        // Frame A: 11 bytes, byte[1] == 0x00 — contains WHEEL SPEED
+        // byte[8] × 0.5 = speed in km/h (confirmed: 90 × 0.5 = 45 km/h)
         else if bytes.count == 11 && bytes[1] == 0x00 {
-            // byte[8] = motor speed in 0.5 km/h units
-            let motorSpeed = Double(bytes[8]) * 0.5
             var snapshot = lastTelemetry
             snapshot.timestamp = Date()
-            // Only update speed from Frame A if Frame B hasn't given us a valid speed
-            // (Frame B is more accurate; Frame A can supplement motor speed display)
-            snapshot.motorPowerWatts = Double(bytes[8]) // store raw as motor speed proxy
-            // Speed limit: byte[0]
-            // (we don't store it in snapshot but we could log it)
+            snapshot.speedKmh = Double(bytes[8]) * 0.5
             lastTelemetry = snapshot
             events.append(.telemetry(snapshot))
         }
