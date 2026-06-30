@@ -1,0 +1,16 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Kukirin Manager" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kukirin Manager"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
