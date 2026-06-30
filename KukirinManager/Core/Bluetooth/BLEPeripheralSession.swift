@@ -53,12 +53,20 @@ extension BLEPeripheralSession: CBPeripheralDelegate {
             PacketLogger.shared.logSystem("Discovered services: \(uuids)")
             
             var foundUART = false
-            for service in services where service.uuid == BLEConstants.nordicUARTService {
-                foundUART = true
-                peripheral.discoverCharacteristics(
-                    [BLEConstants.nordicUARTTX, BLEConstants.nordicUARTRX],
-                    for: service
-                )
+            for service in services {
+                if service.uuid == BLEConstants.nordicUARTService {
+                    foundUART = true
+                    peripheral.discoverCharacteristics(
+                        [BLEConstants.nordicUARTTX, BLEConstants.nordicUARTRX],
+                        for: service
+                    )
+                } else if service.uuid == BLEConstants.altUARTService {
+                    foundUART = true
+                    peripheral.discoverCharacteristics(
+                        [BLEConstants.altUARTTX, BLEConstants.altUARTRX],
+                        for: service
+                    )
+                }
             }
             
             if !foundUART {
@@ -78,9 +86,9 @@ extension BLEPeripheralSession: CBPeripheralDelegate {
                 return
             }
             for characteristic in service.characteristics ?? [] {
-                if characteristic.uuid == BLEConstants.nordicUARTTX {
+                if characteristic.uuid == BLEConstants.nordicUARTTX || characteristic.uuid == BLEConstants.altUARTTX {
                     txCharacteristic = characteristic
-                } else if characteristic.uuid == BLEConstants.nordicUARTRX {
+                } else if characteristic.uuid == BLEConstants.nordicUARTRX || characteristic.uuid == BLEConstants.altUARTRX {
                     rxCharacteristic = characteristic
                 }
             }
