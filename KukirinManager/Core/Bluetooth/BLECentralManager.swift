@@ -116,10 +116,12 @@ final class BLECentralManager: NSObject {
     private func startConnectionTimeout() {
         connectionTimer?.invalidate()
         connectionTimer = Timer.scheduledTimer(withTimeInterval: BLEConstants.connectionTimeout, repeats: false) { [weak self] _ in
-            guard let self, !self.connectionState.isConnected else { return }
-            self.coordinator.markFailed("Connection timed out")
-            if let peripheral = self.session?.peripheral ?? self.peripherals[self.pendingConnectId ?? UUID()] {
-                self.central.cancelPeripheralConnection(peripheral)
+            Task { @MainActor in
+                guard let self, !self.connectionState.isConnected else { return }
+                self.coordinator.markFailed("Connection timed out")
+                if let peripheral = self.session?.peripheral ?? self.peripherals[self.pendingConnectId ?? UUID()] {
+                    self.central.cancelPeripheralConnection(peripheral)
+                }
             }
         }
     }

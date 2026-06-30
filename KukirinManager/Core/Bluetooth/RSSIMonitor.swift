@@ -1,4 +1,4 @@
-import CoreBluetooth
+@preconcurrency import CoreBluetooth
 import Foundation
 
 @MainActor
@@ -13,7 +13,7 @@ final class RSSIMonitor {
         self.peripheral = peripheral
         stop()
         timer = Timer.scheduledTimer(withTimeInterval: BLEConstants.rssiPollInterval, repeats: true) { [weak self] _ in
-            peripheral.readRSSI()
+            self?.peripheral?.readRSSI()
         }
     }
 

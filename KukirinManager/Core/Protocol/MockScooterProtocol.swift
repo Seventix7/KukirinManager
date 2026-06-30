@@ -1,8 +1,7 @@
 import Foundation
 
 /// Simulated protocol for UI development and Simulator testing.
-@MainActor
-final class MockScooterProtocol: ScooterProtocol {
+final class MockScooterProtocol: ScooterProtocol, @unchecked Sendable {
     let modelId: ScooterModel = .g3
     var capabilities: ScooterCapabilities { .mock }
 

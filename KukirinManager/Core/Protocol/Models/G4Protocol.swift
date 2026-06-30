@@ -47,7 +47,7 @@ final class G4Protocol: ScooterProtocol, @unchecked Sendable {
                     snapshot.speedKmh = Double(bytes[13]) // Try byte 13 based on typical offset
                     // Odometer (little endian 2C 01 -> 300 -> 30.0)
                     let odo16 = Double(UInt16(bytes[23]) << 8 | UInt16(bytes[22])) / 10.0
-                    snapshot.tripOdometerKm = odo16
+                    snapshot.tripDistanceKm = odo16
                     // Mode
                     let modeByte = bytes[5]
                     if modeByte == 1 { snapshot.rideMode = .eco }

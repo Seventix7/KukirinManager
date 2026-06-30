@@ -270,17 +270,21 @@ final class ScooterSession {
     private func startTelemetryPolling() {
         telemetryTimer?.invalidate()
         telemetryTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            self?.sendCommand(.requestTelemetry)
+            Task { @MainActor in
+                self?.sendCommand(.requestTelemetry)
+            }
         }
     }
 
     private func startMockTelemetryLoop() {
         mockTimer?.invalidate()
         mockTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-            guard let self, let mock = self.mockProtocol else { return }
-            let snapshot = mock.currentTelemetry()
-            self.latestTelemetry = snapshot
-            self.telemetryPublisher.publish(snapshot)
+            Task { @MainActor in
+                guard let self, let mock = self.mockProtocol else { return }
+                let snapshot = mock.currentTelemetry()
+                self.latestTelemetry = snapshot
+                self.telemetryPublisher.publish(snapshot)
+            }
         }
     }
 
