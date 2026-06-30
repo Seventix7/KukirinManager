@@ -100,8 +100,8 @@ final class BLECentralManager: NSObject {
             coordinator.markFailed("Could not retrieve peripheral")
             return
         }
-        peripherals[peripheral.id] = peripheral
-        pendingConnectId = peripheral.id
+        peripherals[peripheral.identifier] = peripheral
+        pendingConnectId = peripheral.identifier
         if coordinator.beginReconnect() {
             coordinator.state = .connecting
             central.connect(peripheral, options: nil)

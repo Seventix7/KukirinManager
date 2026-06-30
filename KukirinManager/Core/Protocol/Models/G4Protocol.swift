@@ -16,7 +16,7 @@ final class G4Protocol: ScooterProtocol, @unchecked Sendable {
         PacketLogger.shared.logSystem("G4: connected — note some G4 variants may lack telemetry UART")
         guard let session else { return }
         let frame = try buildCommand(.requestTelemetry)
-        session.write(frame)
+        await MainActor.run { session.write(frame) }
     }
 
     func parseIncoming(_ data: Data) -> [ProtocolEvent] {

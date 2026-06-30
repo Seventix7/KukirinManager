@@ -65,7 +65,7 @@ struct FirmwareView: View {
     private func infoRow(_ title: String, _ value: String, icon: String) -> some View {
         HStack {
             Image(systemName: icon)
-                .foregroundStyle(.accent)
+                .foregroundStyle(Color.accentColor)
                 .frame(width: 28)
             VStack(alignment: .leading) {
                 Text(title)

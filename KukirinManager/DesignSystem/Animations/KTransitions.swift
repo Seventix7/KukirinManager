@@ -25,6 +25,6 @@ struct MatchedHeroModifier: ViewModifier {
 
 extension View {
     func matchedHero(id: String, in namespace: Namespace.ID) -> some View {
-        modifier(MatchedHeroModifier(id: id, in: namespace))
+        modifier(MatchedHeroModifier(id: id, namespace: namespace))
     }
 }

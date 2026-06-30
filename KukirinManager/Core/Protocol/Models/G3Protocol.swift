@@ -85,9 +85,11 @@ final class G3Protocol: ScooterProtocol, @unchecked Sendable {
     // MARK: - Handshake
 
     private func performHandshake(session: BLEPeripheralSession) async throws {
-        session.write(try buildCommand(.requestFirmwareInfo))
+        let frame1 = try buildCommand(.requestFirmwareInfo)
+        await MainActor.run { session.write(frame1) }
         try await Task.sleep(nanoseconds: 200_000_000)
-        session.write(try buildCommand(.requestTelemetry))
+        let frame2 = try buildCommand(.requestTelemetry)
+        await MainActor.run { session.write(frame2) }
         PacketLogger.shared.logSystem("G3: handshake frames sent — verify responses in Diagnostics")
     }
 

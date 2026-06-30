@@ -77,7 +77,7 @@ final class G2Protocol: ScooterProtocol, @unchecked Sendable {
 
     private func requestInitialTelemetry(session: BLEPeripheralSession) async throws {
         let frame = try buildCommand(.requestTelemetry)
-        session.write(frame)
+        await MainActor.run { session.write(frame) }
     }
 
     private func matchesModel(name: String?, patterns: [String]) -> Bool {

@@ -12,7 +12,7 @@ final class MockScooterProtocol: ScooterProtocol {
     private var tripKm: Double = 2.4
     private var odometerKm: Double = 1247.3
     private var rideSeconds: TimeInterval = 420
-    private var rideMode: RideMode = .drive
+    var rideMode: RideMode = .drive
     private var timer: Timer?
 
     var speedLimits: [RideMode: Double] = [

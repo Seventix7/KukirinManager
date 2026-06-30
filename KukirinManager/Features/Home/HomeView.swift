@@ -33,7 +33,7 @@ struct HomeView: View {
                 HStack {
                     Image(systemName: "antenna.radiowaves.left.and.right")
                         .font(.title2)
-                        .foregroundStyle(.accent)
+                        .foregroundStyle(Color.accentColor)
                     VStack(alignment: .leading) {
                         Text("Bluetooth")
                             .font(.headline)
