@@ -19,6 +19,9 @@ jobs:
         with:
           xcode-version: latest-stable
 
+      - name: Generate Xcode Project
+        run: python3 generate_xcodeproj.py
+
       - name: Build app
         run: |
           xcodebuild clean build \
