@@ -21,7 +21,7 @@ final class BLEPeripheralSession: NSObject {
     }
 
     func discoverServices() {
-        peripheral.discoverServices([BLEConstants.nordicUARTService])
+        peripheral.discoverServices(nil)
     }
 
     func write(_ data: Data) {
