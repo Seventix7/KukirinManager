@@ -44,15 +44,25 @@ extension BLEPeripheralSession: CBPeripheralDelegate {
                 return
             }
             guard let services = peripheral.services, !services.isEmpty else {
-                onDiscoveryFailed?("No UART service found")
+                onDiscoveryFailed?("No services found on device")
                 return
             }
             discoveredServices = services
+            
+            let uuids = services.map { $0.uuid.uuidString }.joined(separator: ", ")
+            PacketLogger.shared.logSystem("Discovered services: \(uuids)")
+            
+            var foundUART = false
             for service in services where service.uuid == BLEConstants.nordicUARTService {
+                foundUART = true
                 peripheral.discoverCharacteristics(
                     [BLEConstants.nordicUARTTX, BLEConstants.nordicUARTRX],
                     for: service
                 )
+            }
+            
+            if !foundUART {
+                onDiscoveryFailed?("No UART service found. Available: \(uuids)")
             }
         }
     }
